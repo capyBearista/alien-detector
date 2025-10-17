@@ -39,42 +39,44 @@ with mp_hands.Hands(
         results = hands.process(rgb)
 
         if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                # Palm landmarks (rough boundary)
-                palm_idx = [1, 5, 9, 13, 17, 0]
-                palm_points = np.array(
-                    [(int(hand_landmarks.landmark[i].x * w),
-                      int(hand_landmarks.landmark[i].y * h))
-                     for i in palm_idx],
-                    np.int32
-                )
+            
 
-                # Create a mask for the palm area
-                mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-                cv2.fillPoly(mask, [palm_points], 255)
+            # for hand_landmarks in results.multi_hand_landmarks:
+            #     # Palm landmarks (rough boundary)
+            #     palm_idx = [1, 5, 9, 13, 17, 0]
+            #     palm_points = np.array(
+            #         [(int(hand_landmarks.landmark[i].x * w),
+            #           int(hand_landmarks.landmark[i].y * h))
+            #          for i in palm_idx],
+            #         np.int32
+            #     )
 
-                # Convert to grayscale for edge detection
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            #     # Create a mask for the palm area
+            #     mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+            #     cv2.fillPoly(mask, [palm_points], 255)
 
-                # Apply Canny edge detection to the palm area only
-                edges = cv2.Canny(gray, 60, 150)
-                palm_edges = cv2.bitwise_and(edges, edges, mask=mask)
+            #     # Convert to grayscale for edge detection
+            #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-                # Find contours (potential palm lines)
-                contours, _ = cv2.findContours(
-                    palm_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            #     # Apply Canny edge detection to the palm area only
+            #     edges = cv2.Canny(gray, 60, 150)
+            #     palm_edges = cv2.bitwise_and(edges, edges, mask=mask)
 
-                # Draw detected palm line contours
-                cv2.drawContours(frame, contours, -1, (0, 255, 255), 1)
+            #     # Find contours (potential palm lines)
+            #     contours, _ = cv2.findContours(
+            #         palm_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                # Draw the palm region outline
-                cv2.polylines(frame, [palm_points], True, (255, 225, 225), 2)
+            #     # Draw detected palm line contours
+            #     cv2.drawContours(frame, contours, -1, (0, 255, 255), 1)
 
-                # Print contour coordinates
-                for cnt in contours:
-                    for point in cnt:
-                        x, y = point[0]
-                        print(f"Line point: ({x}, {y})")
+            #     # Draw the palm region outline
+            #     cv2.polylines(frame, [palm_points], True, (255, 225, 225), 2)
+
+            #     # Print contour coordinates
+            #     for cnt in contours:
+            #         for point in cnt:
+            #             x, y = point[0]
+            #             print(f"Line point: ({x}, {y})")
 
                 # Save a snippet of the palm when contours (palm lines) found
                 
