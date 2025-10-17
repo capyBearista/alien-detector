@@ -6,6 +6,9 @@ mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 
 vidcap = cv2.VideoCapture(0)
+# Testing with an image
+#vidcap = cv2.VideoCapture('Right_Hand_Palm.png')
+
 # Save video
 fps = vidcap.get(cv2.CAP_PROP_FPS)
 width = int(vidcap.get(3))
@@ -67,11 +70,13 @@ with mp_hands.Hands(
                 # Draw the palm region outline
                 cv2.polylines(frame, [palm_points], True, (255, 225, 225), 2)
 
-                # Optional: print contour coordinates
+                # Print contour coordinates
                 for cnt in contours:
                     for point in cnt:
                         x, y = point[0]
                         print(f"Line point: ({x}, {y})")
+
+                # 
 
         output.write(frame)
         cv2.imshow("Palm Line Detection", frame)
