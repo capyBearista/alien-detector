@@ -215,3 +215,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Output videos
+vids/
+Right_Hand_Palm.png
