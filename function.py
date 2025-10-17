@@ -57,7 +57,7 @@ options = vision.HandLandmarkerOptions(base_options=base_options,
 detector = vision.HandLandmarker.create_from_options(options)
 
 # STEP 3: Load the input image.
-image = mp.Image.create_from_file("image.jpg")
+image = mp.Image.create_from_file("hand3.jpg")
 
 # STEP 4: Detect hand landmarks from the input image.
 detection_result = detector.detect(image)
