@@ -3,6 +3,7 @@ from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 import cv2
 
+# Hand landmark drawing settings
 MARGIN = 10  # pixels
 FONT_SIZE = 1
 FONT_THICKNESS = 1
@@ -74,6 +75,21 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
+import os
+from pathlib import Path
+
+aliens_folder = Path("./alien_hands_detected")
+# Check if folder already existed
+if os.path.exists(aliens_folder):
+    for hand in aliens_folder.glob("*"):
+        if hand.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+            hand.unlink()
+            print(f"Deleted: {hand}")
+else:
+    # If folder does not exist, create one
+    os.makedirs(aliens_folder)
+    print(f"Created new folder: {aliens_folder}")
+
 # STEP 2: Create an HandLandmarker object.
 # Changed to 1 hand instead of 2
 base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
@@ -81,41 +97,84 @@ options = vision.HandLandmarkerOptions(base_options=base_options,
                                        num_hands=1)
 detector = vision.HandLandmarker.create_from_options(options)
 
-# STEP 3: Load the input image.
-image = mp.Image.create_from_file("hand3.jpg")
+# STEP 3: Changed input to web cam
+# Open webcam
+vidcap = cv2.VideoCapture(0)  
 
-# STEP 4: Detect hand landmarks from the input image.
-detection_result = detector.detect(image)
+# Save video output
+fps = vidcap.get(cv2.CAP_PROP_FPS)
+width = int(vidcap.get(3))
+height = int(vidcap.get(4))
 
-# TEST: PRINT OUT THE LENGTH OF ALL FINGERS
-if detection_result.hand_landmarks:
-        # Assuming only one hand is detected
-        hand_landmarks = detection_result.hand_landmarks[0]
+output = cv2.VideoWriter("vids/1_clip.mp4",
+                        cv2.VideoWriter_fourcc('m','p','4','v'),
+                        fps=fps, frameSize=(width,height))
+
+paused = False
+ALIEN_HAND_DETECTED = 5
+alien_hand_in_frame = 0
+num_pauses = 0
+
+while vidcap.isOpened():
+    if not paused:
+        success, frame = vidcap.read()
+        if not success:
+            print("Failed to grab frame")
+            break
+
+        # Convert the frame from BGR (OpenCV) to RGB (Mediapipe)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+
+        # STEP 4: Run hand detection
+        detection_result = detector.detect(mp_image)
+        idx_fin_len = 0
+        mid_fin_len = 0
+        diff = 1
+
+        # If a hand is found, check the finger lengths
+        if detection_result.hand_landmarks:
+            hand_landmarks = detection_result.hand_landmarks[0]
+            lengths = get_finger_lengths(hand_landmarks)
+
+            idx_fin_len = lengths['Index Finger']
+            mid_fin_len = lengths['Middle Finger']
+            
+            diff = abs(idx_fin_len - mid_fin_len)
+
+
+        # STEP 5: Draw landmarks on hand and show result. 
+        annotated_image = draw_landmarks_on_image(rgb_frame, detection_result)
+        display_frame = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
+
+
+        if diff > 0.0001 and alien_hand_in_frame < ALIEN_HAND_DETECTED:
+            alien_hand_in_frame += 1
+            print(f"Index={idx_fin_len:.4f}, Middle={mid_fin_len:.4f}, Diff={diff:.4f}\n alien_hand_in_frame={alien_hand_in_frame}")
+            
+        elif diff <= 0.001 and alien_hand_in_frame == ALIEN_HAND_DETECTED:
+            print(f"YOU'RE AN ALIEN!!!")
+            paused = True
+            num_pauses += 1
+
+    else:
+        # While paused, output the hand image with landmarks and keep showing the same frame
+        # until user presses key 'c'
+        # cv2.putText(annotated_image, )
+        cv2.imwrite(str(aliens_folder) + "/" + str(num_pauses) + "_alien_hand.jpg", display_frame)
+
+        cv2.putText(display_frame, "ALIEN TRAITS DETECTED - Press 'c' to continue scanning", (30, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
-        # Calculate and print finger lengths
-        lengths = get_finger_lengths(hand_landmarks)
-        index_finger_length = 0.0
-        middle_finger_length = 0.0
-        for finger, length in lengths.items():
-            # print(f'{finger} Length: {length:.4f} (units are relative)')
-            if finger == 'Index Finger':
-                index_finger_length = length
-            elif finger == 'Middle Finger':
-                middle_finger_length = length
-        print(f'Index Finger Length: {index_finger_length:.4f} (units are relative)')
-        print(f'Middle Finger Length: {middle_finger_length:.4f} (units are relative)')
-        distance_between_index_and_mid_finger = max(index_finger_length,middle_finger_length) - min(index_finger_length,middle_finger_length)
-        if distance_between_index_and_mid_finger < 0.1:
-            print(f'The difference between two fingers: {distance_between_index_and_mid_finger:.4f}')
-            print("YOU'RE AN ALIEN!!!")
+    
+    output.write(display_frame)
+    cv2.imshow("Alien Detector", display_frame)
 
-        # TEST IF INDEX AND MIDDLE FINGER ARE ABOUT THE SAME LENGTH
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        break
+    elif key == ord('c') and paused:
+        paused = False  # continue when 'c' pressed
 
-
-# STEP 5: Process the classification result. In this case, visualize it.
-annotated_image = draw_landmarks_on_image(image.numpy_view(), detection_result)
-cv2.imshow("Annotated Image", cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
-
-
-cv2.waitKey(0)
+vidcap.release()
 cv2.destroyAllWindows()
