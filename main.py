@@ -5,6 +5,29 @@ import cv2
 import time
 from datetime import datetime
 
+# Function to play a video in a separate window using OpenCV
+import threading
+import pygame
+def play_video(video_path, audio_path=None):
+    def _play():
+        if audio_path:
+            pygame.mixer.init()
+            pygame.mixer.music.load(audio_path)
+            pygame.mixer.music.play()
+        cap = cv2.VideoCapture(video_path)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            cv2.imshow("Detection Video", frame)
+            if cv2.waitKey(30) & 0xFF == ord('q'):
+                break
+        cap.release()
+        cv2.destroyWindow("Detection Video")
+        if audio_path:
+            pygame.mixer.music.stop()
+    threading.Thread(target=_play, daemon=True).start()
+
 # Hand landmark drawing settings
 MARGIN = 10  # pixels
 FONT_SIZE = 1
@@ -197,9 +220,11 @@ while vidcap.isOpened():
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                     save_path = aliens_folder / f"{timestamp}_alien_hand.jpg"
                     cv2.imwrite(str(save_path), display_frame)
+                    play_video("alien.mp4", "alien.mp3")  # Play alien video with sound
                 else:
                     label = "HUMAN"
                     color = COLOR_HUMAN
+                    play_video("human.mp4", "human.mp3")  # Play human video with sound
 
                 print(f"Captured (frozen): Index={idx_len:.6f}, Middle={mid_len:.6f}, Diff={diff:.6f} -> {label}")
                 overlay_text = f"{label} DETECTED (diff={diff:.6f})"
