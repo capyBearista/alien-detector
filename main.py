@@ -4,23 +4,55 @@ import numpy as np
 import cv2
 import time
 from datetime import datetime
+import ctypes    # error window
 
 # Function to play a video in a separate window using OpenCV
 import threading
 import pygame
 def play_video(video_path, audio_path=None):
     def _play():
+        import time
+        video_loops = 1
+        audio_duration = None
+        video_duration = None
         if audio_path:
             pygame.mixer.init()
             pygame.mixer.music.load(audio_path)
+            # Get audio duration
+            try:
+                audio = pygame.mixer.Sound(audio_path)
+                audio_duration = audio.get_length()
+            except Exception:
+                audio_duration = None
             pygame.mixer.music.play()
         cap = cv2.VideoCapture(video_path)
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            cv2.imshow("Detection Video", frame)
-            if cv2.waitKey(30) & 0xFF == ord('q'):
+        # Get video duration
+        try:
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            video_duration = frame_count / fps if fps > 0 else None
+        except Exception:
+            video_duration = None
+        # Determine how many times to loop video
+        if audio_duration and video_duration:
+            video_loops = max(1, int(audio_duration // video_duration) + (1 if audio_duration % video_duration > 0 else 0))
+        start_time = time.time()
+        loops_played = 0
+        while loops_played < video_loops:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                cv2.imshow("Detection Video", frame)
+                if cv2.waitKey(30) & 0xFF == ord('q'):
+                    break
+                # If audio is playing and has finished, break
+                if audio_duration and (time.time() - start_time) >= audio_duration:
+                    break
+            loops_played += 1
+            # If audio is playing and has finished, break
+            if audio_duration and (time.time() - start_time) >= audio_duration:
                 break
         cap.release()
         cv2.destroyWindow("Detection Video")
@@ -35,7 +67,7 @@ FONT_THICKNESS = 1
 HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
 
 # Classification/overlay settings
-ALIEN_THRESHOLD = 0.02
+ALIEN_THRESHOLD = 0.04
 OVERLAY_DURATION_SEC = 2.0
 OVERLAY_POS = (30, 50)
 COLOR_ALIEN = (0, 0, 255)   # Red (BGR)
@@ -220,6 +252,7 @@ while vidcap.isOpened():
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                     save_path = aliens_folder / f"{timestamp}_alien_hand.jpg"
                     cv2.imwrite(str(save_path), display_frame)
+                    # ctypes.windll.user32.MessageBoxW(None, u"Error", u"Error", 0)
                     play_video("alien.mp4", "alien.mp3")  # Play alien video with sound
                 else:
                     label = "HUMAN"
@@ -232,7 +265,7 @@ while vidcap.isOpened():
             else:
                 # No hand detected at capture time
                 print("Capture pressed but no hand detected")
-                overlay_text = "No hand detected - press 'c' to resume"
+                overlay_text = "No hand detected"
                 overlay_color = COLOR_NO_HAND
 
             # Freeze on capture
