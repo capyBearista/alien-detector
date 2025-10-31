@@ -143,17 +143,16 @@ from mediapipe.tasks.python import vision
 import os
 from pathlib import Path
 
-aliens_folder = Path("./alien_hands_detected")
-# Check if folder already existed
-if os.path.exists(aliens_folder):
-    for hand in aliens_folder.glob("*"):
-        if hand.suffix.lower() in [".jpg", ".jpeg", ".png"]:
-            hand.unlink()
-            print(f"Deleted: {hand}")
-else:
-    # If folder does not exist, create one
-    os.makedirs(aliens_folder)
-    print(f"Created new folder: {aliens_folder}")
+capture_folder = Path("./detected-hands")
+no_hand_folder = capture_folder / "no-hands"
+# Ensure directories exist
+os.makedirs(capture_folder, exist_ok=True)
+os.makedirs(no_hand_folder, exist_ok=True)
+# Clean up old images in detected_hands (but not no-hands)
+for hand in capture_folder.glob("*"):
+    if hand.is_file() and hand.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+        hand.unlink()
+        print(f"Deleted: {hand}")
 
 # STEP 2: Create a HandLandmarker object.
 # Changed to 1 hand instead of 2
@@ -170,6 +169,11 @@ vidcap = cv2.VideoCapture(0)
 os.makedirs("vids", exist_ok=True)
 
 # Save video output
+
+# Generate a unique filename for each run using timestamp
+timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+video_filename = f"vids/clip_{timestamp_str}.mp4"
+
 fps = vidcap.get(cv2.CAP_PROP_FPS)
 try:
     fps_val = float(fps)
@@ -183,7 +187,7 @@ height = int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 if width <= 0 or height <= 0:
     width, height = 640, 480
 
-output = cv2.VideoWriter("vids/1_clip.mp4",
+output = cv2.VideoWriter(video_filename,
                         cv2.VideoWriter_fourcc('m','p','4','v'),
                         fps_val, (width, height))
 
@@ -238,6 +242,7 @@ while vidcap.isOpened():
     elif key == ord('c'):
         if not frozen:
             # Analyze current frame's landmarks once, then freeze
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             if detection_result and detection_result.hand_landmarks:
                 hand_landmarks = detection_result.hand_landmarks[0]
                 lengths = get_finger_lengths(hand_landmarks)
@@ -248,16 +253,15 @@ while vidcap.isOpened():
                 if diff <= ALIEN_THRESHOLD:
                     label = "ALIEN"
                     color = COLOR_ALIEN
-                    # Save annotated still
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                    save_path = aliens_folder / f"{timestamp}_alien_hand.jpg"
+                    save_path = capture_folder / f"alien_hand_{timestamp}.jpg"
                     cv2.imwrite(str(save_path), display_frame)
-                    # ctypes.windll.user32.MessageBoxW(None, u"Error", u"Error", 0)
-                    play_video("alien.mp4", "alien.mp3")  # Play alien video with sound
+                    play_video("result-vids/alien.mp4", "result-vids/alien.mp3")  # Play alien video with sound
                 else:
                     label = "HUMAN"
                     color = COLOR_HUMAN
-                    play_video("human.mp4", "human.mp3")  # Play human video with sound
+                    save_path = capture_folder / f"human_hand_{timestamp}.jpg"
+                    cv2.imwrite(str(save_path), display_frame)
+                    play_video("result-vids/human.mp4", "result-vids/human.mp3")  # Play human video with sound
 
                 print(f"Captured (frozen): Index={idx_len:.6f}, Middle={mid_len:.6f}, Diff={diff:.6f} -> {label}")
                 overlay_text = f"{label} DETECTED (diff={diff:.6f})"
@@ -267,6 +271,8 @@ while vidcap.isOpened():
                 print("Capture pressed but no hand detected")
                 overlay_text = "No hand detected"
                 overlay_color = COLOR_NO_HAND
+                save_path = no_hand_folder / f"no_hand_{timestamp}.jpg"
+                cv2.imwrite(str(save_path), display_frame)
 
             # Freeze on capture
             frozen_frame = display_frame.copy()
