@@ -57,7 +57,7 @@ Controls:
 ## Project Structure
 - `main.py`: Main alien hand detector
 - `palm.py`: Palm line detection (test script)
-- `hand_landmarker.task`: MediaPipe hand model by Google
+- `hand_landmarker.task`: Pre-trained machine learning model to identify hands and hand landmarks, by Google, for use with MediaPipe
 - `alien_hands_detected/`: Saved detection result images
 - `vids/`: Saved video clips
 - `demo-images/`: Demo images showcasing the model at work
