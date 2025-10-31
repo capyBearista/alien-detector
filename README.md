@@ -72,4 +72,4 @@ This project was developed on Windows 11 and tested with PowerShell. WSL may hav
 - Arjun Pramanik
 
 ## License
-[BSD 3-Clause](LICENSE.MD)
+[BSD 3-Clause](LICENSE.md)
