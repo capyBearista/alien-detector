@@ -1,5 +1,5 @@
 # 👽 Alien Hand Scanner 9000
-*Halloween Project @ Quincy College Computer Club by **🧟‍♀️ Thanh van Nguyen** and **🎃 Arjun Pramanik***
+*Halloween Project @ Quincy College Computer Club by **🧟‍♀️ Thanh Van Nguyen** and **🎃 Arjun Pramanik***
 
 Detect alien hands using 100% effective science! This project uses a webcam to analyze hand landmarks and classify hands as "Alien" or "Human" based on finger proportions. Capture and save detected alien hands, and play themed videos and sounds for each detection.
 
@@ -68,7 +68,7 @@ Controls:
 This project was developed on Windows 11 and tested with PowerShell. WSL may have issues accessing cameras, so running on Linux could require additional setup.
 
 ## Authors
-- Thanh van Nguyen
+- Thanh Van Nguyen
 - Arjun Pramanik
 
 ## License
