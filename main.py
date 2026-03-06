@@ -1,5 +1,4 @@
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
+import mediapipe as mp
 import numpy as np
 import cv2
 import time
@@ -68,6 +67,7 @@ HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
 
 # Classification/overlay settings
 ALIEN_THRESHOLD = 0.04
+ALIEN_RELATIVE_THRESHOLD = 0.08
 OVERLAY_DURATION_SEC = 2.0
 OVERLAY_POS = (30, 50)
 COLOR_ALIEN = (0, 0, 255)   # Red (BGR)
@@ -78,26 +78,39 @@ def draw_landmarks_on_image(rgb_image, detection_result):
   hand_landmarks_list = detection_result.hand_landmarks
   handedness_list = detection_result.handedness
   annotated_image = np.copy(rgb_image)
+  
+  height, width, _ = annotated_image.shape
 
   # Loop through the detected hands to visualize.
   for idx in range(len(hand_landmarks_list)):
     hand_landmarks = hand_landmarks_list[idx]
     handedness = handedness_list[idx]
 
-    # Draw the hand landmarks.
-    hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-    hand_landmarks_proto.landmark.extend([
-      landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in hand_landmarks
-    ])
-    solutions.drawing_utils.draw_landmarks(
-      annotated_image,
-      hand_landmarks_proto,
-      solutions.hands.HAND_CONNECTIONS,
-      solutions.drawing_styles.get_default_hand_landmarks_style(),
-      solutions.drawing_styles.get_default_hand_connections_style())
+    # Draw connections between landmarks
+    connections = [
+        (0, 1), (1, 2), (2, 3), (3, 4),  # Thumb
+        (0, 5), (5, 6), (6, 7), (7, 8),  # Index
+        (0, 9), (9, 10), (10, 11), (11, 12),  # Middle
+        (0, 13), (13, 14), (14, 15), (15, 16),  # Ring
+        (0, 17), (17, 18), (18, 19), (19, 20),  # Pinky
+        (5, 9), (9, 13), (13, 17)  # Palm
+    ]
+    
+    # Draw connections
+    for connection in connections:
+        start_idx, end_idx = connection
+        start = hand_landmarks[start_idx]
+        end = hand_landmarks[end_idx]
+        start_point = (int(start.x * width), int(start.y * height))
+        end_point = (int(end.x * width), int(end.y * height))
+        cv2.line(annotated_image, start_point, end_point, (0, 255, 0), 2)
+    
+    # Draw landmarks
+    for landmark in hand_landmarks:
+        cx, cy = int(landmark.x * width), int(landmark.y * height)
+        cv2.circle(annotated_image, (cx, cy), 5, (0, 0, 255), -1)
 
     # Get the top left corner of the detected hand's bounding box.
-    height, width, _ = annotated_image.shape
     x_coordinates = [landmark.x for landmark in hand_landmarks]
     y_coordinates = [landmark.y for landmark in hand_landmarks]
     text_x = int(min(x_coordinates) * width)
@@ -249,8 +262,9 @@ while vidcap.isOpened():
                 idx_len = lengths['Index Finger']
                 mid_len = lengths['Middle Finger']
                 diff = abs(idx_len - mid_len)
+                rel_diff = diff / max(idx_len, mid_len, 1e-6)
 
-                if diff <= ALIEN_THRESHOLD:
+                if diff <= ALIEN_THRESHOLD and rel_diff <= ALIEN_RELATIVE_THRESHOLD:
                     label = "ALIEN"
                     color = COLOR_ALIEN
                     save_path = capture_folder / f"alien_hand_{timestamp}.jpg"
@@ -263,8 +277,12 @@ while vidcap.isOpened():
                     cv2.imwrite(str(save_path), display_frame)
                     play_video("result-vids/human.mp4", "result-vids/human.mp3")  # Play human video with sound
 
-                print(f"Captured (frozen): Index={idx_len:.6f}, Middle={mid_len:.6f}, Diff={diff:.6f} -> {label}")
-                overlay_text = f"{label} DETECTED (diff={diff:.6f})"
+                print(
+                    f"Captured (frozen): Index={idx_len:.6f}, Middle={mid_len:.6f}, "
+                    f"Diff={diff:.6f}, RelDiff={rel_diff:.3%}, "
+                    f"AbsThreshold={ALIEN_THRESHOLD:.6f}, RelThreshold={ALIEN_RELATIVE_THRESHOLD:.3%} -> {label}"
+                )
+                overlay_text = f"{label} DETECTED (rel={rel_diff:.1%})"
                 overlay_color = color
             else:
                 # No hand detected at capture time
